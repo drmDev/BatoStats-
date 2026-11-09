@@ -1,4 +1,4 @@
-BatoStats++ v1.007 - Post-battle combat statistics for Batomon Showdown
+BatoStats++ v1.009 - Post-battle combat statistics for Batomon Showdown
 =====================================================================
 
 BatoStats++ adds a collapsible panel after each battle that compares your
@@ -10,6 +10,7 @@ FEATURES
 - Team totals for damage, status damage, healing, shield, and casts.
 - A comparison operator (>, <, or =) between your total and the opponent's.
 - A compact one-row-per-unit table for each team.
+- Each unit row shows the monster's icon beside its name.
 - The top value for each metric on each team is highlighted in green.
 - Zero and missing values are shown in a muted color.
 - The panel can be collapsed and dragged.

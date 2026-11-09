@@ -8,6 +8,7 @@ class FakeUnit:
 	var team_id := 0
 	var slot_index := 0
 	var unit_name := ""
+	var data = null
 	var damage_dealt := 0.0
 	var healing_done := 0.0
 	var shield_granted := 0.0
@@ -15,6 +16,12 @@ class FakeUnit:
 	var burn_inflicted := 0
 	var poison_inflicted := 0
 	var shock_inflicted := 0
+
+
+## Stand-in for a species resource: the icon lookup key lives on data.name_key.
+class FakeSpeciesData:
+	extends RefCounted
+	var name_key := ""
 
 
 ## A unit that exposes only a subset of the metrics, to exercise null handling.
@@ -127,6 +134,21 @@ func test_capture_retains_no_live_references() -> void:
 	var captured: Dictionary = snapshot["player_team"]["units"][0]
 	assert_eq(captured["damage"], 100.0)
 	assert_eq(captured["unit_name"], "Lignite")
+
+
+func test_species_key_prefers_data_name_key() -> void:
+	var unit := _unit(0, 0, "Leafleap", 0.0, 0.0, 0.0, 0, 0, 0, 0)
+	var species := FakeSpeciesData.new()
+	species.name_key = "monster.name.leafleap"
+	unit.data = species
+	var captured: Dictionary = CombatStats.capture(_data([unit]))["player_team"]["units"][0]
+	assert_eq(captured["species_key"], "monster.name.leafleap")
+
+
+func test_species_key_falls_back_to_unit_name() -> void:
+	var unit := _unit(0, 0, "monster.name.cairnage", 0.0, 0.0, 0.0, 0, 0, 0, 0)
+	var captured: Dictionary = CombatStats.capture(_data([unit]))["player_team"]["units"][0]
+	assert_eq(captured["species_key"], "monster.name.cairnage")
 
 
 func test_compare_operators() -> void:

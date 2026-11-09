@@ -7,6 +7,7 @@ extends "collapsible_panel.gd"
 ## draggable (inherited) and starts centered near the bottom of the screen.
 
 const CombatStats = preload("../core/combat_stats.gd")
+const SpeciesIcons = preload("../core/species_icons.gd")
 
 const PADDING := 4.0
 const GUTTER := 16.0
@@ -20,8 +21,8 @@ const BOTTOM_MARGIN := 32.0
 # little wider than their text, so values keep clear space from the column to the
 # left (notably SHLD and CAST, which must never appear merged).
 const TABLE_FONT_SIZE := 5
-const TABLE_ROW_H := 8.0
-const COL_UNIT_W := 46.0
+const TABLE_ROW_H := 9.0
+const COL_UNIT_W := 54.0
 const COL_DMG_W := 22.0
 const COL_STATUS_W := 28.0
 const COL_HEAL_W := 22.0
@@ -30,6 +31,14 @@ const COL_CAST_W := 20.0
 const COL_WIDTHS := [COL_UNIT_W, COL_DMG_W, COL_STATUS_W, COL_HEAL_W, COL_SHLD_W, COL_CAST_W]
 const COL_LABELS := ["UNIT", "DMG", "STATUS", "HEAL", "SHLD", "CAST"]
 const TABLE_WIDTH := COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W + COL_SHLD_W + COL_CAST_W
+
+# Monster sprite drawn at the start of the UNIT cell, so a row reads
+# [icon] [name]. The slot is always reserved, even when no icon resolves, so the
+# names of every row and both teams stay aligned.
+const ICON_SIZE := 8.0
+const ICON_GAP := 2.0
+const ICON_Y_OFFSET := -0.5  # nudge the sprite up so it meets the text baseline
+const NAME_W := COL_UNIT_W - ICON_SIZE - ICON_GAP
 
 # Each team's half of the panel is exactly as wide as its unit table, so the team
 # heading, the totals and the table all share one column of width COLUMN_WIDTH.
@@ -44,6 +53,7 @@ const ROW_ALT_COLOR := Color(1, 1, 1, 0.05)
 const DIVIDER_COLOR := Color(1, 1, 1, 0.12)
 
 var _snapshot: Dictionary = {}
+var _icons: Dictionary = {}  # species_key -> Texture2D (or null for a miss)
 var _user_moved := false
 var _show_totals := true
 
@@ -79,6 +89,7 @@ func show_snapshot(snapshot: Dictionary) -> void:
 		hide_panel()
 		return
 	_snapshot = snapshot
+	_resolve_icons()
 	_apply_size()
 	_reposition()
 	visible = true
@@ -89,6 +100,7 @@ func hide_panel() -> void:
 	if not visible:
 		return
 	visible = false
+	_icons.clear()
 	queue_redraw()
 
 
@@ -194,6 +206,19 @@ func _column_x(x: float, index: int) -> float:
 	return x + offset
 
 
+## Resolve every unit's species icon once per snapshot, so _draw never touches
+## GameDatabase. Misses are stored as null and not retried for this snapshot.
+func _resolve_icons() -> void:
+	_icons.clear()
+	for team_key in ["player_team", "opponent_team"]:
+		var team: Dictionary = _snapshot.get(team_key, {})
+		for unit in team.get("units", []):
+			var key := str(unit.get("species_key", "")).strip_edges()
+			if key.is_empty() or _icons.has(key):
+				continue
+			_icons[key] = SpeciesIcons.icon_for(key)
+
+
 ## Draw one team's compact table: a single header row, then one row per unit.
 func _draw_table(units: Array, x: float, y: float) -> void:
 	# Header row: the unit name is left-aligned, every numeric column right-aligned.
@@ -211,11 +236,16 @@ func _draw_table(units: Array, x: float, y: float) -> void:
 		var unit: Dictionary = units[i]
 		if i % 2 == 1:
 			draw_rect(Rect2(x, y, TABLE_WIDTH, TABLE_ROW_H), ROW_ALT_COLOR)
+		# Monster icon, then the name in the same cell.
+		var icon = _icons.get(str(unit.get("species_key", "")).strip_edges())
+		if icon is Texture2D:
+			var icon_y := y + (TABLE_ROW_H - ICON_SIZE) * 0.5 + ICON_Y_OFFSET
+			_draw_texture_fit(icon, Rect2(Vector2(x, icon_y), Vector2(ICON_SIZE, ICON_SIZE)))
 		var name := _display_name(str(unit.get("unit_name", "")))
 		if name.is_empty():
 			name = str(unit.get("unit_id", "?"))
-		name = _fit_text(_text_font, name, TABLE_FONT_SIZE, COL_UNIT_W)
-		_draw_table_cell(x, y, COL_UNIT_W, name, VALUE_COLOR, HORIZONTAL_ALIGNMENT_LEFT)
+		name = _fit_text(_text_font, name, TABLE_FONT_SIZE, NAME_W)
+		_draw_table_cell(x + ICON_SIZE + ICON_GAP, y, NAME_W, name, VALUE_COLOR, HORIZONTAL_ALIGNMENT_LEFT)
 		for col in range(CombatStats.METRIC_KEYS.size()):
 			var key: String = CombatStats.METRIC_KEYS[col]
 			var cell := col + 1

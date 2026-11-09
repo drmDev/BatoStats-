@@ -19,7 +19,8 @@ extends RefCounted
 ##   unit:
 ##   {
 ##     "unit_name": String, "unit_id": String, "slot_index": int or null,
-##     "damage": float or null, "status_damage": float or null,
+##     "species_key": String, "damage": float or null,
+##     "status_damage": float or null,
 ##     "healing": float or null, "shield": float or null, "casts": int or null,
 ##     "additional_metrics": {"burn_inflicted": ..., "poison_inflicted": ...,
 ##                            "shock_inflicted": ...},
@@ -114,6 +115,7 @@ static func _read_unit(unit) -> Dictionary:
 		"unit_name": _read_name(unit),
 		"unit_id": _read_unit_id(unit),
 		"slot_index": _read_int(unit, "slot_index"),
+		"species_key": _read_species_key(unit),
 		"damage": _read_float(unit, "damage_dealt"),
 		"status_damage": _sum_optional([burn, poison, shock]),
 		"healing": _read_float(unit, "healing_done"),
@@ -140,6 +142,27 @@ static func _read_name(unit) -> String:
 			if key != null and not str(key).is_empty():
 				return str(key)
 	return ""
+
+
+## The species key used to look up the monster's icon in the game database.
+## Prefers data.name_key (the key CreatureComforts uses for team monsters), then
+## the unit's own key fields, and finally the display name so an icon lookup is
+## still attempted. Always a plain String: the snapshot retains no live objects.
+static func _read_species_key(unit) -> String:
+	if NodeUtils.has_property(unit, "data"):
+		var data = unit.get("data")
+		if data != null:
+			for prop in ["name_key", "species_key"]:
+				if NodeUtils.has_property(data, prop):
+					var value = data.get(prop)
+					if value != null and not str(value).is_empty():
+						return str(value)
+	for prop in ["name_key", "species_key"]:
+		if NodeUtils.has_property(unit, prop):
+			var value = unit.get(prop)
+			if value != null and not str(value).is_empty():
+				return str(value)
+	return _read_name(unit)
 
 
 static func _read_unit_id(unit) -> String:

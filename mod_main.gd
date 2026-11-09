@@ -5,7 +5,7 @@ extends Node
 ## simulation's battle statistics and shows the comparison panel. The panel is
 ## hidden while a replay runs and when the battle state is left.
 
-const VERSION := "1.007"
+const VERSION := "1.009"
 
 const NodeUtils = preload("core/node_utils.gd")
 const BattleMonitor = preload("core/battle_monitor.gd")

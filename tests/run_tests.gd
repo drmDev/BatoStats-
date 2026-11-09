@@ -7,6 +7,7 @@ extends SceneTree
 
 var _test_scripts := {
 	"combat_stats": preload("test_combat_stats.gd"),
+	"species_icons": preload("test_species_icons.gd"),
 }
 
 
