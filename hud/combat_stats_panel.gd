@@ -9,7 +9,6 @@ extends "collapsible_panel.gd"
 const CombatStats = preload("../core/combat_stats.gd")
 
 const PADDING := 4.0
-const COLUMN_WIDTH := 138.0
 const GUTTER := 16.0
 const ROW_H := 9.0
 const SECTION_GAP := 3.0
@@ -17,16 +16,24 @@ const ROW_FONT_SIZE := 6
 const TAB_EXTRA_WIDTH := 30.0
 const BOTTOM_MARGIN := 32.0
 
-# Compact unit table (one row per unit).
+# Compact unit table (one row per unit). Numeric columns are right-aligned and a
+# little wider than their text, so values keep clear space from the column to the
+# left (notably SHLD and CAST, which must never appear merged).
 const TABLE_FONT_SIZE := 5
 const TABLE_ROW_H := 8.0
-const COL_UNIT_W := 52.0
-const COL_DMG_W := 18.0
-const COL_STATUS_W := 24.0
-const COL_HEAL_W := 16.0
-const COL_SHLD_W := 16.0
-const COL_CAST_W := 12.0
+const COL_UNIT_W := 46.0
+const COL_DMG_W := 22.0
+const COL_STATUS_W := 28.0
+const COL_HEAL_W := 22.0
+const COL_SHLD_W := 22.0
+const COL_CAST_W := 20.0
+const COL_WIDTHS := [COL_UNIT_W, COL_DMG_W, COL_STATUS_W, COL_HEAL_W, COL_SHLD_W, COL_CAST_W]
+const COL_LABELS := ["UNIT", "DMG", "STATUS", "HEAL", "SHLD", "CAST"]
 const TABLE_WIDTH := COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W + COL_SHLD_W + COL_CAST_W
+
+# Each team's half of the panel is exactly as wide as its unit table, so the team
+# heading, the totals and the table all share one column of width COLUMN_WIDTH.
+const COLUMN_WIDTH := TABLE_WIDTH
 
 # Comparison operator colours: green when the player leads, red when behind.
 const GT_COLOR := Color("#7ec850")
@@ -150,8 +157,8 @@ func _draw_body(_width: float) -> void:
 	var opponent: Dictionary = _snapshot.get("opponent_team", {})
 	var y := HEAD_H + PADDING
 	if _show_totals:
-		_draw_text_shadow(Vector2(_left_col_x(), y + ROW_H - 2.0), "Player Team", LABEL_COLOR, ROW_FONT_SIZE)
-		_draw_text_shadow(Vector2(_right_col_x(), y + ROW_H - 2.0), "Opponent Team", LABEL_COLOR, ROW_FONT_SIZE)
+		_draw_text_shadow(Vector2(_left_col_x(), y + ROW_H - 2.0), "Player Team", LABEL_COLOR, ROW_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER, COLUMN_WIDTH)
+		_draw_text_shadow(Vector2(_right_col_x(), y + ROW_H - 2.0), "Opponent Team", LABEL_COLOR, ROW_FONT_SIZE, HORIZONTAL_ALIGNMENT_CENTER, COLUMN_WIDTH)
 		y += ROW_H + SECTION_GAP
 
 		var player_totals: Dictionary = player.get("totals", {})
@@ -178,14 +185,21 @@ func _draw_body(_width: float) -> void:
 	_draw_table(opponent.get("units", []), _right_col_x(), y)
 
 
+## X offset of a column within a table whose left edge is x. One source of truth
+## for the header row and every unit row, so both teams share identical spacing.
+func _column_x(x: float, index: int) -> float:
+	var offset := 0.0
+	for i in range(index):
+		offset += COL_WIDTHS[i]
+	return x + offset
+
+
 ## Draw one team's compact table: a single header row, then one row per unit.
 func _draw_table(units: Array, x: float, y: float) -> void:
-	_draw_table_cell(x, y, COL_UNIT_W, "UNIT", LABEL_COLOR, HORIZONTAL_ALIGNMENT_LEFT)
-	_draw_table_cell(x + COL_UNIT_W, y, COL_DMG_W, "DMG", LABEL_COLOR, HORIZONTAL_ALIGNMENT_RIGHT)
-	_draw_table_cell(x + COL_UNIT_W + COL_DMG_W, y, COL_STATUS_W, "STATUS", LABEL_COLOR, HORIZONTAL_ALIGNMENT_RIGHT)
-	_draw_table_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W, y, COL_HEAL_W, "HEAL", LABEL_COLOR, HORIZONTAL_ALIGNMENT_RIGHT)
-	_draw_table_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W, y, COL_SHLD_W, "SHLD", LABEL_COLOR, HORIZONTAL_ALIGNMENT_RIGHT)
-	_draw_table_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W + COL_SHLD_W, y, COL_CAST_W, "CAST", LABEL_COLOR, HORIZONTAL_ALIGNMENT_RIGHT)
+	# Header row: the unit name is left-aligned, every numeric column right-aligned.
+	for col in range(COL_WIDTHS.size()):
+		var align := HORIZONTAL_ALIGNMENT_LEFT if col == 0 else HORIZONTAL_ALIGNMENT_RIGHT
+		_draw_table_cell(_column_x(x, col), y, COL_WIDTHS[col], COL_LABELS[col], LABEL_COLOR, align)
 	y += TABLE_ROW_H
 
 	if units.is_empty():
@@ -202,11 +216,10 @@ func _draw_table(units: Array, x: float, y: float) -> void:
 			name = str(unit.get("unit_id", "?"))
 		name = _fit_text(_text_font, name, TABLE_FONT_SIZE, COL_UNIT_W)
 		_draw_table_cell(x, y, COL_UNIT_W, name, VALUE_COLOR, HORIZONTAL_ALIGNMENT_LEFT)
-		_draw_metric_cell(x + COL_UNIT_W, y, COL_DMG_W, unit.get("damage"), maxima.get("damage"))
-		_draw_metric_cell(x + COL_UNIT_W + COL_DMG_W, y, COL_STATUS_W, unit.get("status_damage"), maxima.get("status_damage"))
-		_draw_metric_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W, y, COL_HEAL_W, unit.get("healing"), maxima.get("healing"))
-		_draw_metric_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W, y, COL_SHLD_W, unit.get("shield"), maxima.get("shield"))
-		_draw_metric_cell(x + COL_UNIT_W + COL_DMG_W + COL_STATUS_W + COL_HEAL_W + COL_SHLD_W, y, COL_CAST_W, unit.get("casts"), maxima.get("casts"))
+		for col in range(CombatStats.METRIC_KEYS.size()):
+			var key: String = CombatStats.METRIC_KEYS[col]
+			var cell := col + 1
+			_draw_metric_cell(_column_x(x, cell), y, COL_WIDTHS[cell], unit.get(key), maxima.get(key))
 		y += TABLE_ROW_H
 
 

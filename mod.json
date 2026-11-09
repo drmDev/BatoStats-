@@ -1,7 +1,7 @@
 {
 	"id": "batostats_plus_plus",
 	"name": "BatoStats++",
-	"version": "1.006",
+	"version": "1.007",
 	"author": "NescapePlan",
 	"description": "Post-battle combat statistics panel comparing your team with the opponent's.",
 	"settings": [

@@ -1,4 +1,4 @@
-BatoStats++ v1.006 - Post-battle combat statistics for Batomon Showdown
+BatoStats++ v1.007 - Post-battle combat statistics for Batomon Showdown
 =====================================================================
 
 BatoStats++ adds a collapsible panel after each battle that compares your
