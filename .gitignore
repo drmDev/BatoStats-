@@ -14,3 +14,4 @@ agent.md
 
 # release output (dev/package_release.ps1)
 dist/
+plans/

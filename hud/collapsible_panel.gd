@@ -1,5 +1,13 @@
 extends "comfort_panel.gd"
 ## Collapsible, draggable panel base.
+##
+## Only the header bar is interactive (see _has_point), so clicks on the body fall through
+## to the game. A press on the header arms _pressing; _process then polls the real mouse
+## button, so the drag always ends on release even if the cursor has left the panel.
+## A press released without crossing DRAG_THRESHOLD toggles collapse instead.
+
+## Emitted once per drag, when the press first crosses DRAG_THRESHOLD (a real move, not a click).
+signal moved
 
 const HEAD_H := 16.0
 const BTN := 12.0
@@ -23,6 +31,7 @@ var _button_style: StyleBoxFlat
 var _pressing := false
 var _dragged := false
 var _press_pos := Vector2.ZERO
+var _drag_offset := Vector2.ZERO
 var _tween: Tween
 
 ## When true, dragging and resizing keep the panel inside the viewport.
@@ -32,7 +41,9 @@ var draw_when_empty := false
 
 
 func _init() -> void:
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS
+	# Keep dragging and the collapse tween alive while the game pauses the tree.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	clip_contents = true
 	visible = false
 	_setup_styles()
@@ -72,6 +83,12 @@ func _apply_size() -> void:
 	pass
 
 
+## Size the panel will have when fully expanded. Lets set_minimized() make room for the
+## expansion once, up front, instead of the position shifting on every animation frame.
+func _target_size() -> Vector2:
+	return size
+
+
 ## Draw the rows only; the base already drew the body background before calling this.
 func _draw_body(_width: float) -> void:
 	pass
@@ -83,6 +100,9 @@ func set_minimized(on: bool, animate := true) -> void:
 	minimized = on
 	if _tween != null:
 		_tween.kill()
+	if not on:
+		# Make room for the expanded size once; the top-left then stays fixed during the tween.
+		_clamp_to_viewport(_target_size())
 	var target := 0.0 if on else 1.0
 	if not animate or not is_inside_tree():
 		reveal = target
@@ -90,8 +110,8 @@ func set_minimized(on: bool, animate := true) -> void:
 		queue_redraw()
 	else:
 		# The game slows / stops Engine.time_scale (KO slow motion, pause), so animate in
-		# real time. Position is intentionally NOT re-anchored: the top stays fixed and the
-		# panel expands downward (subclasses choose their own anchoring).
+		# real time. Position is not touched while animating: the top stays fixed and the
+		# panel expands downward (any needed shift was applied above, once).
 		_tween = create_tween().set_ignore_time_scale(true)
 		_tween.tween_method(func(v: float):
 			reveal = v
@@ -136,7 +156,7 @@ func _draw() -> void:
 	var c := b.get_center().floor()
 	draw_rect(Rect2(c.x - 3, c.y, 6, 1), INK_COLOR)
 	if minimized:
-		draw_rect(Rect2(c.x, c.y - 3, 1, 7), INK_COLOR)
+		draw_rect(Rect2(c.x - 1, c.y - 3, 1, 7), INK_COLOR)
 
 
 func _draw_title(r: Rect2) -> void:
@@ -145,39 +165,60 @@ func _draw_title(r: Rect2) -> void:
 	_draw_text_shadow(Vector2(r.position.x, baseline), t, VALUE_COLOR, TITLE_FONT_SIZE)
 
 
+## Only the visible header bar takes mouse input; the body is click-through.
+func _has_point(point: Vector2) -> bool:
+	return point.x >= 0.0 and point.x <= header_width() and point.y >= 0.0 and point.y <= HEAD_H + 1.0
+
+
+## Arms a press on the header. Everything after the press (threshold, dragging, release,
+## toggle) is handled by _process, which does not depend on where the cursor is.
 func _gui_input(event) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			if event.position.y > HEAD_H + 1:
-				return  # body: not ours to handle
 			_pressing = true
 			_dragged = false
-			_press_pos = event.position
-		elif _pressing:
-			_pressing = false
-			if not _dragged:
-				toggle()
-		accept_event()
-	elif event is InputEventMouseMotion and _pressing:
-		if not _dragged and event.position.distance_to(_press_pos) >= DRAG_THRESHOLD:
-			_dragged = true
-		if _dragged:
-			# event.relative is the mouse delta in screen space; using it (instead of comparing
-			# local event.position against a fixed press point) avoids the feedback loop that made
-			# the panel jump/snap back as it moved under the cursor.
-			position += event.relative
-			_clamp_to_viewport()
+			# Global space, so the panel can be placed directly under the cursor every frame.
+			_press_pos = get_global_mouse_position()
+			_drag_offset = _press_pos - global_position
 		accept_event()
 
 
-## Keep the panel inside the viewport when the subclass opts in. Called after a
-## drag and by subclasses after resizing (expand/collapse or viewport resize).
-func _clamp_to_viewport() -> void:
+func _process(_delta: float) -> void:
+	if not _pressing:
+		return
+	var mouse := get_global_mouse_position()
+	if not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		# Released (over the panel or not): a press that never became a drag is a click.
+		_pressing = false
+		if not _dragged:
+			toggle()
+		return
+	if not _dragged and mouse.distance_to(_press_pos) >= DRAG_THRESHOLD:
+		_dragged = true
+		moved.emit()
+	if _dragged:
+		# Follow the absolute cursor position; accumulated deltas can drift.
+		global_position = mouse - _drag_offset
+		_clamp_to_viewport()
+
+
+func _notification(what: int) -> void:
+	# A press cannot outlive the panel being hidden (no stray toggle / drag on re-show).
+	if what == NOTIFICATION_VISIBILITY_CHANGED and not visible:
+		_pressing = false
+		_dragged = false
+
+
+## Keep the panel inside the viewport when the subclass opts in. extent is the size to fit
+## (defaults to the current size). Called while dragging, on viewport resize, and once when
+## an expansion starts; never per animation frame.
+func _clamp_to_viewport(extent := Vector2.ZERO) -> void:
 	if not clamp_to_viewport:
 		return
 	var viewport := get_viewport()
 	if viewport == null:
 		return
+	var fit: Vector2 = extent if extent != Vector2.ZERO else size
 	var bounds := viewport.get_visible_rect().size
-	position.x = clampf(position.x, 0.0, maxf(0.0, bounds.x - size.x))
-	position.y = clampf(position.y, 0.0, maxf(0.0, bounds.y - size.y))
+	position.x = clampf(position.x, 0.0, maxf(0.0, bounds.x - fit.x))
+	position.y = clampf(position.y, 0.0, maxf(0.0, bounds.y - fit.y))

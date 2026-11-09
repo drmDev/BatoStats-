@@ -45,6 +45,7 @@ func _ready() -> void:
 	# The panel has no _entries rows, so the header must draw while collapsed.
 	draw_when_empty = true
 	clamp_to_viewport = true
+	moved.connect(_on_moved)
 	_connect_viewport_resize(_on_viewport_resized)
 	_apply_size()
 	_anchor_default()
@@ -61,8 +62,7 @@ func set_show_totals(on: bool) -> void:
 		return
 	_show_totals = on
 	_apply_size()
-	if not _user_moved:
-		_anchor_default()
+	_reposition()
 	queue_redraw()
 
 
@@ -73,8 +73,7 @@ func show_snapshot(snapshot: Dictionary) -> void:
 		return
 	_snapshot = snapshot
 	_apply_size()
-	if not _user_moved:
-		_anchor_default()
+	_reposition()
 	visible = true
 	queue_redraw()
 
@@ -104,10 +103,15 @@ func header_width() -> float:
 	return _tab_width()
 
 
+func _target_size() -> Vector2:
+	return Vector2(_content_width(), full_height())
+
+
+## Size only. Position is handled by _reposition(), never per animation frame, so the
+## panel does not creep while it expands or collapses.
 func _apply_size() -> void:
 	var w := lerpf(_tab_width(), _content_width(), reveal)
 	size = Vector2(w, lerpf(HEAD_H + 1.0, full_height(), reveal))
-	_clamp_to_viewport()
 
 
 func _content_width() -> float:
@@ -270,6 +274,15 @@ func _display_name(name: String) -> String:
 	return short.substr(0, 1).to_upper() + short.substr(1)
 
 
+## After the content size changes: re-anchor to the default spot, or keep a user-placed
+## panel where it is but inside the viewport.
+func _reposition() -> void:
+	if not _user_moved:
+		_anchor_default()
+	else:
+		_clamp_to_viewport()
+
+
 ## Center the panel horizontally near the bottom of the viewport.
 func _anchor_default() -> void:
 	var viewport := get_viewport()
@@ -283,15 +296,9 @@ func _anchor_default() -> void:
 
 
 func _on_viewport_resized() -> void:
-	if not _user_moved:
-		_anchor_default()
-	else:
-		_clamp_to_viewport()
+	_reposition()
 
 
-## Track a user drag so a later show does not snap the panel back to its default.
-func _gui_input(event) -> void:
-	var before := position
-	super._gui_input(event)
-	if position != before:
-		_user_moved = true
+## A real drag (not a click, not a clamp) so a later show does not snap the panel back.
+func _on_moved() -> void:
+	_user_moved = true
