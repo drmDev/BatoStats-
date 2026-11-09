@@ -36,16 +36,6 @@ func _build_panel_font() -> Font:
 	return font
 
 
-## Shared HUD box: navy fill, gold 1px border, rounded corners.
-func _build_hud_box(radius := 3, border_width := 1) -> StyleBoxFlat:
-	var box := StyleBoxFlat.new()
-	box.bg_color = BG_COLOR
-	box.border_color = BORDER_COLOR
-	box.set_border_width_all(border_width)
-	box.set_corner_radius_all(radius)
-	return box
-
-
 ## Draw a texture inside `rect` at its natural aspect ratio (contain), centred.
 ## Keeps a wide icon from being stretched into a square.
 func _draw_texture_fit(tex: Texture2D, rect: Rect2) -> void:

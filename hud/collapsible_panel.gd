@@ -18,9 +18,6 @@ const TITLE_FONT_SIZE := 8  # Shared header text size for every collapsible pane
 const HEADER_BG := Style.HEADER_BG      # Slightly lighter navy for the header bar
 const INK_COLOR := Style.VALUE_COLOR    # "-" / "+" glyph colour
 
-var _entries: Array = []  # Array of subclass-defined row Dictionaries
-var _content_key := ""    # Cheap change detection for subclass show_*() callers
-
 var minimized := false
 var reveal := 1.0  # 1 = expanded, 0 = minimized (animated)
 
@@ -136,7 +133,7 @@ func button_rect() -> Rect2:
 func _draw() -> void:
 	if _panel_style == null or _text_font == null:
 		return
-	if _entries.is_empty() and reveal <= 0.01 and not draw_when_empty:
+	if reveal <= 0.01 and not draw_when_empty:
 		return
 
 	var ci := get_canvas_item()

@@ -131,38 +131,38 @@ static func _read_unit(unit) -> Dictionary:
 
 static func _read_name(unit) -> String:
 	for prop in ["unit_name", "name_key", "species_key"]:
-		if NodeUtils.has_property(unit, prop):
-			var value = unit.get(prop)
-			if value != null and not str(value).is_empty():
-				return str(value)
-	if NodeUtils.has_property(unit, "data"):
-		var data = unit.get("data")
-		if data != null and NodeUtils.has_property(data, "name_key"):
-			var key = data.get("name_key")
-			if key != null and not str(key).is_empty():
-				return str(key)
-	return ""
+		var name := _read_string(unit, prop)
+		if not name.is_empty():
+			return name
+	var data = unit.get("data") if NodeUtils.has_property(unit, "data") else null
+	return _read_string(data, "name_key")
 
 
 ## The species key used to look up the monster's icon in the game database.
 ## Prefers data.name_key (the key CreatureComforts uses for team monsters), then
-## the unit's own key fields, and finally the display name so an icon lookup is
-## still attempted. Always a plain String: the snapshot retains no live objects.
+## the unit's own key fields, then the display name so an icon lookup is still
+## attempted. Always a plain String: the snapshot retains no live objects.
 static func _read_species_key(unit) -> String:
-	if NodeUtils.has_property(unit, "data"):
-		var data = unit.get("data")
-		if data != null:
-			for prop in ["name_key", "species_key"]:
-				if NodeUtils.has_property(data, prop):
-					var value = data.get(prop)
-					if value != null and not str(value).is_empty():
-						return str(value)
+	var data = unit.get("data") if NodeUtils.has_property(unit, "data") else null
 	for prop in ["name_key", "species_key"]:
-		if NodeUtils.has_property(unit, prop):
-			var value = unit.get(prop)
-			if value != null and not str(value).is_empty():
-				return str(value)
-	return _read_name(unit)
+		var key := _read_string(data, prop)
+		if not key.is_empty():
+			return key
+	for prop in ["name_key", "species_key", "unit_name"]:
+		var key := _read_string(unit, prop)
+		if not key.is_empty():
+			return key
+	return ""
+
+
+## Non-empty String value of `prop` on `obj`, or "" when missing or empty.
+static func _read_string(obj, prop: String) -> String:
+	if not NodeUtils.has_property(obj, prop):
+		return ""
+	var value = obj.get(prop)
+	if value == null or str(value).is_empty():
+		return ""
+	return str(value)
 
 
 static func _read_unit_id(unit) -> String:

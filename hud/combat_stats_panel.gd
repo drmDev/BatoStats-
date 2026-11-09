@@ -59,7 +59,7 @@ var _show_totals := true
 
 
 func _ready() -> void:
-	# The panel has no _entries rows, so the header must draw while collapsed.
+	# The panel has no body rows, so the header must draw while collapsed.
 	draw_when_empty = true
 	clamp_to_viewport = true
 	moved.connect(_on_moved)
