@@ -1,7 +1,13 @@
 {
 	"id": "batostats_plus_plus",
 	"name": "BatoStats++",
-	"version": "1.001",
+	"version": "1.003",
 	"author": "NescapePlan",
-	"description": "Post-battle combat statistics panel comparing your team with the opponent's."
+	"description": "Post-battle combat statistics panel comparing your team with the opponent's.",
+	"settings": [
+		{"key": "auto_update", "label": "Auto-update", "type": "bool", "default": true,
+		 "description": "Download and install new BatoStats++ versions from GitHub."},
+		{"key": "show_team_totals", "label": "Team Comparison Totals", "type": "bool", "default": true,
+		 "description": "Show the summed team comparison at the top of the stats panel."}
+	]
 }

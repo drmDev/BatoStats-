@@ -11,3 +11,6 @@ Desktop.ini
 # misc
 dev/*.ps1
 agent.md
+
+# release output (dev/package_release.ps1)
+dist/

@@ -5,19 +5,23 @@ extends Node
 ## simulation's battle statistics and shows the comparison panel. The panel is
 ## hidden while a replay runs and when the battle state is left.
 
-const VERSION := "1.001"
+const VERSION := "1.003"
 
 const NodeUtils = preload("core/node_utils.gd")
 const BattleMonitor = preload("core/battle_monitor.gd")
 const BattleCompletionReporter = preload("core/battle_completion_reporter.gd")
 const CombatStats = preload("core/combat_stats.gd")
 const CombatStatsPanel = preload("hud/combat_stats_panel.gd")
+const ModConfig = preload("core/mod_config.gd")
+const AutoUpdater = preload("core/auto_updater.gd")
 
 const BATTLE_SCRIPT := "res://game/states/battle_state.gd"
 const POLL_INTERVAL_MS := 500
 
 var _panel = null
 var _completion = null
+var _config = null
+var _updater = null
 var _next_poll := 0
 var _snapshot: Dictionary = {}
 
@@ -30,6 +34,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	if not _is_loaded_by_mod_loader():
 		_setup()
+
+
+func _exit_tree() -> void:
+	# Drop the loader subscription so a freed mod node is never called back.
+	if _config != null:
+		_config.teardown()
 
 
 func _setup() -> void:
@@ -45,7 +55,34 @@ func _setup() -> void:
 	layer.add_child(_panel)
 
 	_completion = BattleCompletionReporter.new()
+
+	_config = ModConfig.new()
+	_config.setup(get_node_or_null("/root/ModLoader"))
+	_config.changed.connect(_on_feature_toggled)
+	_panel.set_show_totals(_config.is_enabled(ModConfig.KEY_SHOW_TEAM_TOTALS))
+
+	_setup_auto_updater()
+
 	print("BatoStats++ %s loaded" % VERSION)
+
+
+## The updater lives next to the mod and edits the mod's own folder, so it gets the folder of the
+## running script (not a game path). It refuses to run on a developer install by itself.
+func _setup_auto_updater() -> void:
+	_updater = AutoUpdater.new()
+	_updater.name = "AutoUpdater"
+	add_child(_updater)
+	_updater.setup(VERSION, get_script().resource_path.get_base_dir(),
+		_config.is_enabled(ModConfig.KEY_AUTO_UPDATE))
+	_updater.start()
+
+
+## Apply a live settings change.
+func _on_feature_toggled(key: String, value: bool) -> void:
+	if key == ModConfig.KEY_AUTO_UPDATE and _updater != null:
+		_updater.set_auto(value)
+	elif key == ModConfig.KEY_SHOW_TEAM_TOTALS and _panel != null:
+		_panel.set_show_totals(value)
 
 
 func _process(_delta: float) -> void:

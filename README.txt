@@ -1,4 +1,4 @@
-BatoStats++ v1.001 - Post-battle combat statistics for Batomon Showdown
+BatoStats++ v1.003 - Post-battle combat statistics for Batomon Showdown
 =====================================================================
 
 BatoStats++ adds a collapsible panel after each battle that compares your
@@ -16,6 +16,31 @@ FEATURES
 
 The panel appears when a battle finishes and hides when you leave the battle.
 It is also hidden while a replay is running.
+
+
+SETTINGS
+--------
+Settings > Mods > BatoStats++
+
+- Team Comparison Totals: show the summed team comparison at the top of the
+  panel (on by default). Turn it off to show only the per-unit tables.
+- Auto-update: download and install new versions from GitHub (on by default).
+
+
+AUTO-UPDATE
+-----------
+BatoStats++ keeps itself current. On game start it checks for a newer version.
+When a new version is out, Auto-update (Settings > Mods > BatoStats++, on by
+default) downloads it and checks it before anything is replaced: the download
+must match the release's checksum, contain only BatoStats++ files, and every
+script must load on your game build. If a check fails or the download fails,
+nothing on disk changes.
+
+After a successful update a small notice says to restart. The new version takes
+effect the next time Batomon Showdown starts.
+
+Turn Auto-update off to get a notice only and install new versions yourself
+(e.g. from Nexus Mods or GitHub) by replacing the Mods\BatoStats++ folder.
 
 
 REQUIREMENTS
